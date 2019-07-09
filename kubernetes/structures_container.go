@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -215,6 +216,9 @@ func flattenResourceFieldSelector(in *v1.ResourceFieldSelector) []interface{} {
 	if in.ContainerName != "" {
 		att["container_name"] = in.ContainerName
 	}
+
+	att["divisor"] = in.Divisor.String()
+
 	if in.Resource != "" {
 		att["resource"] = in.Resource
 	}
@@ -834,7 +838,7 @@ func expandFieldRef(r []interface{}) (*v1.ObjectFieldSelector, error) {
 	}
 	return obj, nil
 }
-func expandResourceFieldRef(r []interface{}) (*v1.ResourceFieldSelector, error) {
+func expandResourceFieldSelector(r []interface{}) (*v1.ResourceFieldSelector, error) {
 	if len(r) == 0 || r[0] == nil {
 		return &v1.ResourceFieldSelector{}, nil
 	}
@@ -843,6 +847,13 @@ func expandResourceFieldRef(r []interface{}) (*v1.ResourceFieldSelector, error) 
 
 	if v, ok := in["container_name"].(string); ok {
 		obj.ContainerName = v
+	}
+	if v, ok := in["divisor"].(string); ok && v != "" {
+		q, err := resource.ParseQuantity(v)
+		if err != nil {
+			return obj, err
+		}
+		obj.Divisor = q
 	}
 	if v, ok := in["resource"].(string); ok {
 		obj.Resource = v
@@ -910,7 +921,7 @@ func expandEnvValueFrom(r []interface{}) (*v1.EnvVarSource, error) {
 		}
 	}
 	if v, ok := in["resource_field_ref"].([]interface{}); ok && len(v) > 0 {
-		obj.ResourceFieldRef, err = expandResourceFieldRef(v)
+		obj.ResourceFieldRef, err = expandResourceFieldSelector(v)
 		if err != nil {
 			return obj, err
 		}
